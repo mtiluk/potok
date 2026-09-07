@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/michaeltukdev/Potok/internal/server/store"
 )
 
 type Store interface {
-	CreateVault(ctx context.Context, name string, wrappedKey []byte) (store.Vault, error)
-	VaultByName(ctx context.Context, name string) (store.Vault, error)
-	ListVaults(ctx context.Context) ([]store.Vault, error)
-	DeleteVault(ctx context.Context, name string) error
+	CreateVault(ctx context.Context, userID, name string) (store.Vault, error)
+	VaultByName(ctx context.Context, userID, name string) (store.Vault, error)
+	ListVaults(ctx context.Context, userID string) ([]store.Vault, error)
+	DeleteVault(ctx context.Context, userID, name string) error
 	CreateUser(ctx context.Context, email, password string) (store.User, error)
 	UserByAPIKey(ctx context.Context, apiKey string) (store.User, error)
 }
@@ -82,4 +83,109 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write(fmt.Appendf(nil, "User created: %v", user))
+}
+
+func (h *Handler) CreateVault(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Malformed request", http.StatusBadRequest)
+		return
+	}
+
+	if body.Name == "" || !regexp.MustCompile(`^[^/\\:*?"<>| .-][^/\\:*?"<>| ]{0,63}$`).MatchString(body.Name) {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	vault, err := h.store.CreateVault(r.Context(), user.ID, body.Name)
+	if err != nil {
+		if err == store.ErrVaultExists {
+			http.Error(w, "vault already exists", http.StatusConflict)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write(fmt.Appendf(nil, "Vault created: %s", vault.Name))
+}
+
+func (h *Handler) ListVaults(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vaults, err := h.store.ListVaults(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(vaults)
+}
+
+func (h *Handler) VaultByName(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// TODO: Implement case insensitive name matching (will need modifiying in store)
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	vault, err := h.store.VaultByName(r.Context(), user.ID, name)
+	if err != nil {
+		if err == store.ErrVaultNotFound {
+			http.Error(w, "vault not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(vault)
+}
+
+func (h *Handler) DeleteVault(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.store.DeleteVault(r.Context(), user.ID, name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Vault deleted"))
 }
