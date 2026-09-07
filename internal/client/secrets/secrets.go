@@ -60,8 +60,10 @@ func Delete(key string) error {
 		return err
 	}
 	if err := keyring.Delete(service, key); err != nil {
+		if errors.Is(err, keyring.ErrNotFound) {
+			return ErrNotFound
+		}
 		return err
 	}
 	return nil
-
 }
