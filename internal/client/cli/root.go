@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/michaeltukdev/Potok/internal/client/cli/commands"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +22,9 @@ func newRootCmd() *cobra.Command {
 	}
 
 	root.AddCommand(
-		runInit(),
-		runVaultAdd(),
+		commands.NewInitCmd(),
+		commands.NewVaultAddCmd(),
+		commands.NewDoctorCmd(),
 	)
 
 	return root

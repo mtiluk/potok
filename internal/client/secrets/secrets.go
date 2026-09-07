@@ -36,8 +36,11 @@ func Get(key string) (string, error) {
 		return "", err
 	}
 	value, err := keyring.Get(service, key)
-	if err != nil {
+	if errors.Is(err, keyring.ErrNotFound) {
 		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 	return value, nil
 }
