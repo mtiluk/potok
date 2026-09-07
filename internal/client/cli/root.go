@@ -1,15 +1,10 @@
 package cli
 
 import (
-	"github.com/michaeltukdev/Potok/internal/client/config"
 	"github.com/spf13/cobra"
 )
 
-type Env struct {
-	Config *config.Config
-}
-
-func newRootCmd(env *Env) *cobra.Command {
+func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "potok",
 		Short: "Encrypted backup and sync for Obsidian vaults",
@@ -26,12 +21,13 @@ func newRootCmd(env *Env) *cobra.Command {
 	}
 
 	root.AddCommand(
-		runVaultAdd(env),
+		runInit(),
+		runVaultAdd(),
 	)
 
 	return root
 }
 
-func Execute(env *Env) error {
-	return newRootCmd(env).Execute()
+func Execute() error {
+	return newRootCmd().Execute()
 }
