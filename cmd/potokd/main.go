@@ -42,6 +42,10 @@ func main() {
 	handler := httpapi.NewHandler(conn)
 	nethttp.HandleFunc("GET /health", handler.Health)
 	nethttp.HandleFunc("POST /register", handler.Register)
+	nethttp.Handle("POST /vaults", handler.APIKeyAuth(nethttp.HandlerFunc(handler.CreateVault)))
+	nethttp.Handle("GET /vaults", handler.APIKeyAuth(nethttp.HandlerFunc(handler.ListVaults)))
+	nethttp.Handle("GET /vaults/{name}", handler.APIKeyAuth(nethttp.HandlerFunc(handler.VaultByName)))
+	nethttp.Handle("DELETE /vaults/{name}", handler.APIKeyAuth(nethttp.HandlerFunc(handler.DeleteVault)))
 	nethttp.Handle("GET /me", handler.APIKeyAuth(nethttp.HandlerFunc(handler.Me)))
 	log.Fatal(nethttp.ListenAndServe(cfg.Addr, nil))
 }

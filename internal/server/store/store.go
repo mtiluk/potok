@@ -14,17 +14,18 @@ import (
 
 var ErrUserExists = fmt.Errorf("user already exists")
 var ErrUserNotFound = fmt.Errorf("user not found")
+var ErrVaultNotFound = fmt.Errorf("vault not found")
+var ErrVaultExists = fmt.Errorf("vault already exists")
 
 type Store struct {
 	db *sql.DB
 }
 
 type Vault struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	WrappedKey []byte    `json:"-"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type User struct {
@@ -49,36 +50,82 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		return nil, fmt.Errorf("store: ping: %w", err)
 	}
 
-	for _, pragma := range []string{
-		"PRAGMA foreign_keys = ON",
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA busy_timeout = 5000",
-	} {
-		if _, err := db.ExecContext(ctx, pragma); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("store: %s: %w", pragma, err)
-		}
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: set pragmas: %w", err)
 	}
 
 	return &Store{db: db}, nil
 }
 
-// Extra
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) CreateVault(ctx context.Context, name string, wrappedKey []byte) (Vault, error) {
-	return Vault{}, nil
+func (s *Store) CreateVault(ctx context.Context, userID, name string) (Vault, error) {
+	vault := Vault{
+		ID:        uuid.NewString(),
+		Name:      name,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := s.db.QueryRowContext(ctx, `
+		INSERT INTO vaults (id, user_id, name, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id, name) DO NOTHING
+		RETURNING id`,
+		vault.ID, userID, name, vault.CreatedAt, vault.UpdatedAt,
+	).Scan(&vault.ID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Vault{}, ErrVaultExists
+		}
+
+		return Vault{}, fmt.Errorf("store: create vault: %w", err)
+	}
+	return vault, nil
 }
 
-func (s *Store) VaultByName(ctx context.Context, name string) (Vault, error) {
-	return Vault{}, nil
+func (s *Store) VaultByName(ctx context.Context, userID, name string) (Vault, error) {
+	var vault Vault
+
+	err := s.db.QueryRowContext(ctx, "SELECT id, name, created_at, updated_at FROM vaults WHERE user_id = $1 AND name = $2", userID, name).Scan(&vault.ID, &vault.Name, &vault.CreatedAt, &vault.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Vault{}, ErrVaultNotFound
+		}
+
+		return Vault{}, fmt.Errorf("store: vault by name: %w", err)
+	}
+
+	return vault, nil
 }
 
-func (s *Store) ListVaults(ctx context.Context) ([]Vault, error) {
-	return []Vault{}, nil
+func (s *Store) ListVaults(ctx context.Context, userID string) ([]Vault, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, name, created_at, updated_at FROM vaults WHERE user_id = $1", userID)
+	if err != nil {
+		return []Vault{}, fmt.Errorf("store: list vaults: %w", err)
+	}
+	defer rows.Close()
+
+	var vaults []Vault
+
+	for rows.Next() {
+		var vault Vault
+		if err := rows.Scan(&vault.ID, &vault.Name, &vault.CreatedAt, &vault.UpdatedAt); err != nil {
+			return []Vault{}, fmt.Errorf("store: list vaults: %w", err)
+		}
+		vaults = append(vaults, vault)
+	}
+
+	return vaults, nil
 }
 
-func (s *Store) DeleteVault(ctx context.Context, name string) error {
+func (s *Store) DeleteVault(ctx context.Context, userID, name string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM vaults WHERE user_id = $1 AND name = $2", userID, name)
+	if err != nil {
+		return fmt.Errorf("store: delete vault: %w", err)
+	}
 	return nil
 }
 

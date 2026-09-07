@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -115,6 +116,277 @@ func TestMeEndpoint(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateVaultEndpoint(t *testing.T) {
+	tests := []struct {
+		name       string
+		seed       string
+		input      string
+		wantStatus int
+	}{
+		{
+			name:       "valid",
+			input:      `{"name":"notes"}`,
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "malformed json",
+			input:      `{"name":`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing name",
+			input:      `{}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid name",
+			input:      `{"name":"my vault"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "duplicate name",
+			seed:       `{"name":"notes"}`,
+			input:      `{"name":"notes"}`,
+			wantStatus: http.StatusConflict,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := newTestStore(t)
+			handler := NewHandler(s)
+
+			user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
+			if err != nil {
+				t.Fatalf("seed CreateUser: %v", err)
+			}
+
+			post := func(body string) *httptest.ResponseRecorder {
+				req := httptest.NewRequest(http.MethodPost, "/vaults", strings.NewReader(body))
+				req.Header.Set("Authorization", "Bearer "+user.APIKey)
+				rec := httptest.NewRecorder()
+				handler.APIKeyAuth(http.HandlerFunc(handler.CreateVault)).ServeHTTP(rec, req)
+				return rec
+			}
+
+			if test.seed != "" {
+				if rec := post(test.seed); rec.Code != http.StatusCreated {
+					t.Fatalf("seed request failed: %d (body: %s)", rec.Code, rec.Body.String())
+				}
+			}
+
+			response := post(test.input)
+			if response.Code != test.wantStatus {
+				t.Errorf("expected status code %d, got %d (body: %s)",
+					test.wantStatus, response.Code, response.Body.String())
+			}
+		})
+	}
+
+	t.Run("unauthorized without middleware", func(t *testing.T) {
+		handler := NewHandler(newTestStore(t))
+		req := httptest.NewRequest(http.MethodPost, "/vaults", strings.NewReader(`{"name":"notes"}`))
+		rec := httptest.NewRecorder()
+		handler.CreateVault(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected status code %d, got %d", http.StatusUnauthorized, rec.Code)
+		}
+	})
+}
+
+func TestListVaultsEndpoint(t *testing.T) {
+	s := newTestStore(t)
+	handler := NewHandler(s)
+
+	userA, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
+	if err != nil {
+		t.Fatalf("seed CreateUser(a): %v", err)
+	}
+	userB, err := s.CreateUser(context.Background(), "b@example.com", "hunter2")
+	if err != nil {
+		t.Fatalf("seed CreateUser(b): %v", err)
+	}
+
+	for _, name := range []string{"notes", "journal"} {
+		if _, err := s.CreateVault(context.Background(), userA.ID, name); err != nil {
+			t.Fatalf("seed CreateVault(%q): %v", name, err)
+		}
+	}
+
+	list := func(apiKey string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/vaults", nil)
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		rec := httptest.NewRecorder()
+		handler.APIKeyAuth(http.HandlerFunc(handler.ListVaults)).ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("returns only the caller's vaults", func(t *testing.T) {
+		rec := list(userA.APIKey)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+
+		var got []store.Vault
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode response: %v (body: %s)", err, rec.Body.String())
+		}
+		if len(got) != 2 {
+			t.Errorf("expected 2 vaults, got %d", len(got))
+		}
+	})
+
+	t.Run("empty for a user with no vaults", func(t *testing.T) {
+		rec := list(userB.APIKey)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+
+		var got []store.Vault
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode response: %v (body: %s)", err, rec.Body.String())
+		}
+		if len(got) != 0 {
+			t.Errorf("expected 0 vaults, got %d", len(got))
+		}
+	})
+
+	t.Run("unauthorized without middleware", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/vaults", nil)
+		rec := httptest.NewRecorder()
+		handler.ListVaults(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected status code %d, got %d", http.StatusUnauthorized, rec.Code)
+		}
+	})
+}
+
+func TestVaultByNameEndpoint(t *testing.T) {
+	s := newTestStore(t)
+	handler := NewHandler(s)
+
+	user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
+	if err != nil {
+		t.Fatalf("seed CreateUser: %v", err)
+	}
+	if _, err := s.CreateVault(context.Background(), user.ID, "notes"); err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	get := func(name string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/vaults/"+name, nil)
+		req.Header.Set("Authorization", "Bearer "+user.APIKey)
+		if name != "" {
+			req.SetPathValue("name", name)
+		}
+		rec := httptest.NewRecorder()
+		handler.APIKeyAuth(http.HandlerFunc(handler.VaultByName)).ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("found", func(t *testing.T) {
+		rec := get("notes")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+
+		var got store.Vault
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode response: %v (body: %s)", err, rec.Body.String())
+		}
+		if got.Name != "notes" {
+			t.Errorf("Name = %q, want %q", got.Name, "notes")
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		rec := get("does-not-exist")
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("expected status code %d, got %d (body: %s)", http.StatusNotFound, rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("missing name", func(t *testing.T) {
+		rec := get("")
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d (body: %s)", http.StatusBadRequest, rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("unauthorized without middleware", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/vaults/notes", nil)
+		req.SetPathValue("name", "notes")
+		rec := httptest.NewRecorder()
+		handler.VaultByName(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected status code %d, got %d", http.StatusUnauthorized, rec.Code)
+		}
+	})
+}
+
+func TestDeleteVaultEndpoint(t *testing.T) {
+	s := newTestStore(t)
+	handler := NewHandler(s)
+
+	user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
+	if err != nil {
+		t.Fatalf("seed CreateUser: %v", err)
+	}
+	if _, err := s.CreateVault(context.Background(), user.ID, "notes"); err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	del := func(name string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodDelete, "/vaults/"+name, nil)
+		req.Header.Set("Authorization", "Bearer "+user.APIKey)
+		if name != "" {
+			req.SetPathValue("name", name)
+		}
+		rec := httptest.NewRecorder()
+		handler.APIKeyAuth(http.HandlerFunc(handler.DeleteVault)).ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("missing name", func(t *testing.T) {
+		rec := del("")
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d (body: %s)", http.StatusBadRequest, rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("deletes an existing vault", func(t *testing.T) {
+		rec := del("notes")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+
+		if _, err := s.VaultByName(context.Background(), user.ID, "notes"); !errors.Is(err, store.ErrVaultNotFound) {
+			t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
+		}
+	})
+
+	t.Run("deleting a nonexistent vault is idempotent", func(t *testing.T) {
+		rec := del("does-not-exist")
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("unauthorized without middleware", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/vaults/notes", nil)
+		req.SetPathValue("name", "notes")
+		rec := httptest.NewRecorder()
+		handler.DeleteVault(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected status code %d, got %d", http.StatusUnauthorized, rec.Code)
+		}
+	})
 }
 
 func TestRegisterEndpoint(t *testing.T) {
