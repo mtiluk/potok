@@ -9,7 +9,7 @@ func setAllEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("ADDR", "8080")
 	t.Setenv("DATA_DIR", "/home/")
-	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/mydb?sslmode=disable")
+	t.Setenv("DATABASE_URL", "file:potok.db")
 }
 
 func TestLoadConfigMissingRequiredEnv(t *testing.T) {
@@ -50,7 +50,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("DataDir = %q, want %q", cfg.DataDir, "/home/")
 	}
 
-	if cfg.DatabaseURL != "postgres://user:pass@localhost:5432/mydb?sslmode=disable" {
-		t.Errorf("DatabaseURL = %q, want %q", cfg.DatabaseURL, "postgres://user:pass@localhost:5432/mydb?sslmode=disable")
+	if cfg.DatabaseURL != "file:potok.db" {
+		t.Errorf("DatabaseURL = %q, want %q", cfg.DatabaseURL, "file:potok.db")
 	}
 }
