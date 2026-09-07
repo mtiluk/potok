@@ -42,5 +42,6 @@ func main() {
 	handler := httpapi.NewHandler(conn)
 	nethttp.HandleFunc("GET /health", handler.Health)
 	nethttp.HandleFunc("POST /register", handler.Register)
+	nethttp.Handle("GET /me", handler.APIKeyAuth(nethttp.HandlerFunc(handler.Me)))
 	log.Fatal(nethttp.ListenAndServe(cfg.Addr, nil))
 }

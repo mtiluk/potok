@@ -12,3 +12,4 @@ coverage.out
 .idea/
 .DS_Store
 potok.db*
+PHASES.MD

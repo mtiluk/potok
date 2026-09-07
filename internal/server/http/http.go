@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/michaeltukdev/Potok/internal/server/store"
 )
@@ -15,6 +16,7 @@ type Store interface {
 	ListVaults(ctx context.Context) ([]store.Vault, error)
 	DeleteVault(ctx context.Context, name string) error
 	CreateUser(ctx context.Context, email, password string) (store.User, error)
+	UserByAPIKey(ctx context.Context, apiKey string) (store.User, error)
 }
 
 type Handler struct {
@@ -28,6 +30,27 @@ func NewHandler(s Store) *Handler {
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		ID        string    `json:"id"`
+		Email     string    `json:"email"`
+		IsAdmin   bool      `json:"is_admin"`
+		CreatedAt time.Time `json:"created_at"`
+	}{
+		ID:        user.ID,
+		Email:     user.Email,
+		IsAdmin:   user.IsAdmin,
+		CreatedAt: user.CreatedAt,
+	})
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {

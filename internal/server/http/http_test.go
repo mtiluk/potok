@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,6 +40,80 @@ func TestHealthEndpoint(t *testing.T) {
 
 	if response.Body.String() != "OK" {
 		t.Errorf("expected body %s, got %s", "OK", response.Body.String())
+	}
+}
+
+func TestMeEndpoint(t *testing.T) {
+	store := newTestStore(t)
+	handler := NewHandler(store)
+
+	user, err := store.CreateUser(context.Background(), "a@example.com", "hunter2")
+	if err != nil {
+		t.Fatalf("seed CreateUser: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		authHeader string
+		wantStatus int
+	}{
+		{
+			name:       "valid api key",
+			authHeader: "Bearer " + user.APIKey,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing authorization header",
+			authHeader: "",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "malformed authorization header",
+			authHeader: user.APIKey,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "unknown api key",
+			authHeader: "Bearer potok_doesnotexist",
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+
+			response := httptest.NewRecorder()
+			handler.APIKeyAuth(http.HandlerFunc(handler.Me)).ServeHTTP(response, req)
+
+			if response.Code != tt.wantStatus {
+				t.Fatalf("expected status code %d, got %d (body: %s)",
+					tt.wantStatus, response.Code, response.Body.String())
+			}
+
+			if tt.wantStatus != http.StatusOK {
+				return
+			}
+
+			var got struct {
+				ID           string `json:"id"`
+				Email        string `json:"email"`
+				PasswordHash string `json:"password_hash"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode response: %v (body: %s)", err, response.Body.String())
+			}
+
+			if got.Email != user.Email {
+				t.Errorf("Email = %q, want %q", got.Email, user.Email)
+			}
+			if got.PasswordHash != "" {
+				t.Errorf("response leaked password_hash: %q", got.PasswordHash)
+			}
+		})
 	}
 }
 
