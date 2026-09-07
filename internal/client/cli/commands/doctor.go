@@ -1,8 +1,3 @@
-// **2. `potok doctor`** — check `config.Load()` succeeds, check keyring access, hit
-// `GET /health` and `GET /me` to confirm the server's reachable and the stored key is
-// valid.
-// - Needs: 1.
-
 package commands
 
 import (
