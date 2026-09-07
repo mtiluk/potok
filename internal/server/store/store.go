@@ -13,6 +13,7 @@ import (
 )
 
 var ErrUserExists = fmt.Errorf("user already exists")
+var ErrUserNotFound = fmt.Errorf("user not found")
 
 type Store struct {
 	db *sql.DB
@@ -115,6 +116,29 @@ func (s *Store) CreateUser(ctx context.Context, email, password string) (User, e
 		}
 
 		return User{}, fmt.Errorf("store: create user: %w", err)
+	}
+	return user, nil
+}
+
+func (s *Store) UserByAPIKey(ctx context.Context, apiKey string) (User, error) {
+	if apiKey == "" {
+		return User{}, ErrUserNotFound
+	}
+
+	var user User
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email, password_hash, is_admin, api_key, created_at
+		FROM users
+		WHERE api_key = ?`,
+		apiKey,
+	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.IsAdmin, &user.APIKey, &user.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return User{}, ErrUserNotFound
+		}
+
+		return User{}, fmt.Errorf("store: user by api key: %w", err)
 	}
 	return user, nil
 }
