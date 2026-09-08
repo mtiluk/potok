@@ -20,7 +20,7 @@ func NewVaultRemoveCmd() *cobra.Command {
 
 			cfg, err := config.Load()
 			if errors.Is(err, config.ErrNotFound) {
-				return errors.New("not initialised, run `potok init` first")
+				return errors.New(color.RedString("not initialised, run `potok init` first"))
 			}
 			if err != nil {
 				return err
