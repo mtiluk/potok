@@ -20,14 +20,14 @@ func NewVaultRemoveCmd() *cobra.Command {
 
 			cfg, err := config.Load()
 			if errors.Is(err, config.ErrNotFound) {
-				return errors.New(color.RedString("not initialised, run `potok init` first"))
+				return errors.New(color.RedString("Not initialised, run `potok init` first"))
 			}
 			if err != nil {
 				return err
 			}
 
 			if !cfg.RemoveVault(name) {
-				return errors.New(color.RedString("vault %q is not registered locally", name))
+				return errors.New(color.RedString("Vault %q is not registered locally", name))
 			}
 
 			if err := secrets.Delete(secrets.VaultKeyName(name)); err != nil && !errors.Is(err, secrets.ErrNotFound) {

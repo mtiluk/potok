@@ -97,7 +97,7 @@ func TestVaultRemoveFailsWhenNotInitialised(t *testing.T) {
 	if err == nil {
 		t.Fatal("vault-remove = nil, want an error when not initialised")
 	}
-	if err.Error() != "not initialised, run `potok init` first" {
+	if err.Error() != "Not initialised, run `potok init` first" {
 		t.Errorf("error = %q, want the not-initialised message", err)
 	}
 }
