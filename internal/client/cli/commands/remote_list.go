@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Vault struct {
+type remoteVault struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
@@ -33,9 +33,6 @@ func NewRemoteListCmd() *cobra.Command {
 				return errors.New(color.RedString("Error loading config: %v", err))
 			}
 
-			fmt.Println(color.GreenString("✓") + " Config loaded successfully")
-			fmt.Println()
-
 			// 2. API key check
 			apiKey, err := secrets.Get(secrets.APIKey)
 			if err != nil {
@@ -53,7 +50,11 @@ func NewRemoteListCmd() *cobra.Command {
 				return errors.New(color.RedString("Invalid or expired API key: %s", response.Status))
 			}
 
-			var vaults []Vault
+			if response.StatusCode != http.StatusOK {
+				return errors.New(color.RedString("Failed to list vaults: %s", response.Status))
+			}
+
+			var vaults []remoteVault
 			if err := json.NewDecoder(response.Body).Decode(&vaults); err != nil {
 				return errors.New(color.RedString("Failed to decode vaults: %v", err))
 			}
