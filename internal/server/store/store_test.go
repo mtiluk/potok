@@ -178,11 +178,15 @@ func TestDeleteVault(t *testing.T) {
 		t.Fatalf("seed CreateVault: %v", err)
 	}
 
-	if err := s.DeleteVault(context.Background(), user.ID, "notes"); err != nil {
+	deleted, err := s.DeleteVault(context.Background(), user.ID, "notes")
+	if err != nil {
 		t.Fatalf("DeleteVault() error: %v", err)
 	}
+	if !deleted {
+		t.Errorf("DeleteVault() = false, want true")
+	}
 
-	_, err := s.VaultByName(context.Background(), user.ID, "notes")
+	_, err = s.VaultByName(context.Background(), user.ID, "notes")
 	if !errors.Is(err, ErrVaultNotFound) {
 		t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
 	}
@@ -197,8 +201,12 @@ func TestDeleteVaultScopedToUser(t *testing.T) {
 		t.Fatalf("seed CreateVault: %v", err)
 	}
 
-	if err := s.DeleteVault(context.Background(), userB.ID, "notes"); err != nil {
+	deleted, err := s.DeleteVault(context.Background(), userB.ID, "notes")
+	if err != nil {
 		t.Fatalf("DeleteVault(userB) error: %v", err)
+	}
+	if deleted {
+		t.Errorf("DeleteVault(userB) = true, want false (vault belongs to userA)")
 	}
 
 	if _, err := s.VaultByName(context.Background(), userA.ID, "notes"); err != nil {
