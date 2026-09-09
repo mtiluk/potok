@@ -25,6 +25,7 @@ func newRootCmd() *cobra.Command {
 		commands.NewInitCmd(),
 		commands.NewVaultAddCmd(),
 		commands.NewVaultRemoveCmd(),
+		commands.NewVaultsListCmd(),
 		commands.NewDoctorCmd(),
 		commands.NewRemoteListCmd(),
 		commands.NewRemoteDeleteCmd(),
