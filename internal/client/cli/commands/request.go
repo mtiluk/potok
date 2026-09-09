@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -16,5 +17,25 @@ func apiRequest(serverURL, apiKey, method, path string) (*http.Response, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
+	return response, nil
+}
+
+func apiRequestJSON(serverURL, apiKey, method, path string, out any) (*http.Response, error) {
+	response, err := apiRequest(serverURL, apiKey, method, path)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return response, nil
+	}
+
+	if out != nil {
+		if err := json.NewDecoder(response.Body).Decode(out); err != nil {
+			return response, fmt.Errorf("failed to decode response: %w", err)
+		}
+	}
+
 	return response, nil
 }
