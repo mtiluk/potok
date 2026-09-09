@@ -20,11 +20,6 @@ func apiRequest(serverURL, apiKey, method, path string) (*http.Response, error) 
 	return response, nil
 }
 
-// apiRequestJSON does an apiRequest and, on a 200 response, decodes the JSON
-// body into out. The caller is still responsible for checking
-// response.StatusCode for anything other than the happy path — a non-200
-// response is returned as-is, with its body already drained and closed,
-// rather than decoded.
 func apiRequestJSON(serverURL, apiKey, method, path string, out any) (*http.Response, error) {
 	response, err := apiRequest(serverURL, apiKey, method, path)
 	if err != nil {
