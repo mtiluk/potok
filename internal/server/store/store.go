@@ -121,12 +121,18 @@ func (s *Store) ListVaults(ctx context.Context, userID string) ([]Vault, error) 
 	return vaults, nil
 }
 
-func (s *Store) DeleteVault(ctx context.Context, userID, name string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM vaults WHERE user_id = $1 AND name = $2", userID, name)
+func (s *Store) DeleteVault(ctx context.Context, userID, name string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM vaults WHERE user_id = $1 AND name = $2", userID, name)
 	if err != nil {
-		return fmt.Errorf("store: delete vault: %w", err)
+		return false, fmt.Errorf("store: delete vault: %w", err)
 	}
-	return nil
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("store: delete vault: %w", err)
+	}
+
+	return n > 0, nil
 }
 
 func (s *Store) CreateUser(ctx context.Context, email, password string) (User, error) {

@@ -364,16 +364,22 @@ func TestDeleteVaultEndpoint(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
 		}
+		if got, want := rec.Body.String(), "Vault deleted"; got != want {
+			t.Errorf("body = %q, want %q", got, want)
+		}
 
 		if _, err := s.VaultByName(context.Background(), user.ID, "notes"); !errors.Is(err, store.ErrVaultNotFound) {
 			t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
 		}
 	})
 
-	t.Run("deleting a nonexistent vault is idempotent", func(t *testing.T) {
+	t.Run("deleting a nonexistent vault is idempotent but reports nothing was deleted", func(t *testing.T) {
 		rec := del("does-not-exist")
 		if rec.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+		if got, want := rec.Body.String(), "No vault deleted"; got != want {
+			t.Errorf("body = %q, want %q", got, want)
 		}
 	})
 

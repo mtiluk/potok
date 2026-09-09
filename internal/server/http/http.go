@@ -15,7 +15,7 @@ type Store interface {
 	CreateVault(ctx context.Context, userID, name string) (store.Vault, error)
 	VaultByName(ctx context.Context, userID, name string) (store.Vault, error)
 	ListVaults(ctx context.Context, userID string) ([]store.Vault, error)
-	DeleteVault(ctx context.Context, userID, name string) error
+	DeleteVault(ctx context.Context, userID, name string) (bool, error)
 	CreateUser(ctx context.Context, email, password string) (store.User, error)
 	UserByAPIKey(ctx context.Context, apiKey string) (store.User, error)
 }
@@ -180,12 +180,16 @@ func (h *Handler) DeleteVault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.store.DeleteVault(r.Context(), user.ID, name)
+	deleted, err := h.store.DeleteVault(r.Context(), user.ID, name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Vault deleted"))
+	if deleted {
+		w.Write([]byte("Vault deleted"))
+	} else {
+		w.Write([]byte("No vault deleted"))
+	}
 }
