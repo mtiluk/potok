@@ -23,8 +23,6 @@ func prompt(label string) string {
 	return strings.TrimSpace(input)
 }
 
-// promptPassphrase prompts twice, with no echo, and requires both entries to
-// match a non-empty value.
 func promptPassphrase(label string) (string, error) {
 	first, err := promptHidden(label)
 	if err != nil {
