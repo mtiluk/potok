@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/michaeltukdev/Potok/internal/server/blobstore"
 	"github.com/michaeltukdev/Potok/internal/server/store"
 )
 
@@ -18,14 +19,18 @@ type Store interface {
 	DeleteVault(ctx context.Context, userID, name string) (bool, error)
 	CreateUser(ctx context.Context, email, password string) (store.User, error)
 	UserByAPIKey(ctx context.Context, apiKey string) (store.User, error)
+	GetBlob(ctx context.Context, userID, vaultName, blobName string) (store.Blob, error)
+	PutBlob(ctx context.Context, vaultID, blobID string, sizeBytes int64) error
+	HasBlob(ctx context.Context, vaultID, blobID string) (bool, error)
 }
 
 type Handler struct {
-	store Store
+	store     Store
+	blobStore blobstore.Store
 }
 
-func NewHandler(s Store) *Handler {
-	return &Handler{store: s}
+func NewHandler(s Store, bs blobstore.Store) *Handler {
+	return &Handler{store: s, blobStore: bs}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

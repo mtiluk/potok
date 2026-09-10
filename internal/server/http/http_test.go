@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/michaeltukdev/Potok/internal/server/blobstore"
 	"github.com/michaeltukdev/Potok/internal/server/store"
 )
 
@@ -28,11 +29,16 @@ func newTestStore(t *testing.T) *store.Store {
 	return s
 }
 
+func newTestBlobStore(t *testing.T) blobstore.Store {
+	t.Helper()
+	return *blobstore.New(t.TempDir())
+}
+
 func TestHealthEndpoint(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
 
 	response := httptest.NewRecorder()
-	handler := NewHandler(nil)
+	handler := NewHandler(nil, newTestBlobStore(t))
 	handler.Health(response, req)
 
 	if response.Code != http.StatusOK {
@@ -46,7 +52,7 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestMeEndpoint(t *testing.T) {
 	store := newTestStore(t)
-	handler := NewHandler(store)
+	handler := NewHandler(store, newTestBlobStore(t))
 
 	user, err := store.CreateUser(context.Background(), "a@example.com", "hunter2")
 	if err != nil {
@@ -156,7 +162,7 @@ func TestCreateVaultEndpoint(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			s := newTestStore(t)
-			handler := NewHandler(s)
+			handler := NewHandler(s, newTestBlobStore(t))
 
 			user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
 			if err != nil {
@@ -186,7 +192,7 @@ func TestCreateVaultEndpoint(t *testing.T) {
 	}
 
 	t.Run("unauthorized without middleware", func(t *testing.T) {
-		handler := NewHandler(newTestStore(t))
+		handler := NewHandler(newTestStore(t), newTestBlobStore(t))
 		req := httptest.NewRequest(http.MethodPost, "/vaults", strings.NewReader(`{"name":"notes"}`))
 		rec := httptest.NewRecorder()
 		handler.CreateVault(rec, req)
@@ -199,7 +205,7 @@ func TestCreateVaultEndpoint(t *testing.T) {
 
 func TestListVaultsEndpoint(t *testing.T) {
 	s := newTestStore(t)
-	handler := NewHandler(s)
+	handler := NewHandler(s, newTestBlobStore(t))
 
 	userA, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
 	if err != nil {
@@ -267,7 +273,7 @@ func TestListVaultsEndpoint(t *testing.T) {
 
 func TestVaultByNameEndpoint(t *testing.T) {
 	s := newTestStore(t)
-	handler := NewHandler(s)
+	handler := NewHandler(s, newTestBlobStore(t))
 
 	user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
 	if err != nil {
@@ -331,7 +337,7 @@ func TestVaultByNameEndpoint(t *testing.T) {
 
 func TestDeleteVaultEndpoint(t *testing.T) {
 	s := newTestStore(t)
-	handler := NewHandler(s)
+	handler := NewHandler(s, newTestBlobStore(t))
 
 	user, err := s.CreateUser(context.Background(), "a@example.com", "hunter2")
 	if err != nil {
@@ -433,7 +439,7 @@ func TestRegisterEndpoint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := NewHandler(newTestStore(t))
+			handler := NewHandler(newTestStore(t), newTestBlobStore(t))
 
 			post := func(body string) *httptest.ResponseRecorder {
 				req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(body))
