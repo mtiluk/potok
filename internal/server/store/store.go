@@ -37,6 +37,13 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type Blob struct {
+	VaultID   string    `json:"vault_id"`
+	ID        string    `json:"id"`
+	SizeBytes int64     `json:"size_bytes"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 func Open(ctx context.Context, dsn string) (*Store, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -194,4 +201,52 @@ func (s *Store) UserByAPIKey(ctx context.Context, apiKey string) (User, error) {
 		return User{}, fmt.Errorf("store: user by api key: %w", err)
 	}
 	return user, nil
+}
+
+func (s *Store) GetBlob(ctx context.Context, userID, vaultName, blobName string) (Blob, error) {
+	var blob Blob
+	err := s.db.QueryRowContext(ctx, `
+		SELECT vault_id, id, size_bytes, created_at
+		FROM blobs
+		WHERE vault_id = ? AND id = ?`,
+		vaultName, blobName,
+	).Scan(&blob.VaultID, &blob.ID, &blob.SizeBytes, &blob.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Blob{}, nil
+		}
+
+		return Blob{}, fmt.Errorf("store: get blob: %w", err)
+	}
+	return blob, nil
+}
+
+func (s *Store) HasBlob(ctx context.Context, vaultID, blobID string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM blobs
+			WHERE vault_id = ? AND id = ?
+		)`,
+		vaultID, blobID,
+	).Scan(&exists)
+
+	if err != nil {
+		return false, fmt.Errorf("store: has blob: %w", err)
+	}
+	return exists, nil
+}
+
+func (s *Store) PutBlob(ctx context.Context, vaultID, blobID string, sizeBytes int64) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO blobs (vault_id, id, size_bytes)
+		VALUES (?, ?, ?)
+	`, vaultID, blobID, sizeBytes)
+
+	if err != nil {
+		return fmt.Errorf("store: put blob: %w", err)
+	}
+	return nil
 }
