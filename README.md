@@ -43,13 +43,13 @@ For more detail, check out the [Potok Docs](https://potok-docs.vercel.app/)
 ### Install
 
 ```bash
-go install github.com/michaeltukdev/Potok/cmd/potok@latest
+go install github.com/mtiluk/potok/cmd/potok@latest
 ```
 
 Server binary (optional):
 
 ```bash
-go install github.com/michaeltukdev/Potok/cmd/potokd@latest
+go install github.com/mtiluk/potok/cmd/potokd@latest
 ```
 
 ### Initialise
@@ -121,6 +121,22 @@ Loads config, checks the API key in the keyring, and hits `/health` and `/me`.
 
 Override with `POTOK_CONFIG_DIR`.
 
+Fresh vault (just registered locally — `remote_id` and `last_synced_at` are omitted until the first sync):
+
+```json
+{
+  "server_url": "http://localhost:8080",
+  "vaults": [
+    {
+      "name": "journal",
+      "path": "/home/user/Documents/Obsidian/Journal"
+    }
+  ]
+}
+```
+
+Existing synced vault:
+
 ```json
 {
   "server_url": "http://localhost:8080",
@@ -128,8 +144,8 @@ Override with `POTOK_CONFIG_DIR`.
     {
       "name": "notes",
       "path": "/home/user/Documents/Obsidian/Notes",
-      "remote_id": "",
-      "last_synced_at": null
+      "remote_id": "vault_abc123",
+      "last_synced_at": "2026-09-01T12:00:00Z"
     }
   ]
 }
