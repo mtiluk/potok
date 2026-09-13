@@ -8,7 +8,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
-	"github.com/michaeltukdev/Potok/migrations"
+	"github.com/mtiluk/potok/migrations"
 )
 
 func (s *Store) migrator() (*migrate.Migrate, error) {

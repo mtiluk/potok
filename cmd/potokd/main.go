@@ -9,10 +9,10 @@ import (
 
 	nethttp "net/http"
 
-	"github.com/michaeltukdev/Potok/internal/server/blobstore"
-	"github.com/michaeltukdev/Potok/internal/server/config"
-	httpapi "github.com/michaeltukdev/Potok/internal/server/http"
-	"github.com/michaeltukdev/Potok/internal/server/store"
+	"github.com/mtiluk/potok/internal/server/blobstore"
+	"github.com/mtiluk/potok/internal/server/config"
+	httpapi "github.com/mtiluk/potok/internal/server/http"
+	"github.com/mtiluk/potok/internal/server/store"
 )
 
 func main() {

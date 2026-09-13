@@ -8,8 +8,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/michaeltukdev/Potok/internal/server/blobstore"
-	"github.com/michaeltukdev/Potok/internal/server/store"
+	"github.com/mtiluk/potok/internal/server/blobstore"
+	"github.com/mtiluk/potok/internal/server/store"
 )
 
 func (h *Handler) PutBlob(w http.ResponseWriter, r *http.Request) {

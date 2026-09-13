@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/michaeltukdev/Potok/internal/server/blobstore"
-	"github.com/michaeltukdev/Potok/internal/server/store"
+	"github.com/mtiluk/potok/internal/server/blobstore"
+	"github.com/mtiluk/potok/internal/server/store"
 )
 
 func newBlobTestHandler(t *testing.T, s *store.Store) *Handler {

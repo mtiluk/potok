@@ -1,4 +1,4 @@
-module github.com/michaeltukdev/Potok
+module github.com/mtiluk/potok
 
 go 1.25.0
 
