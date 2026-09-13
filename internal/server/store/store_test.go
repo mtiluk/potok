@@ -64,6 +64,24 @@ func TestCreateVaultDuplicateName(t *testing.T) {
 
 	if _, err := s.CreateVault(context.Background(), user.ID, "notes"); err == nil {
 		t.Error("CreateVault() with a name the user already has expected an error, got nil")
+	} else if !errors.Is(err, ErrVaultExists) {
+		t.Errorf("CreateVault() error = %v, want ErrVaultExists", err)
+	}
+}
+
+func TestCreateVaultDuplicateNameDifferentCase(t *testing.T) {
+	s := newTestStore(t)
+	user := seedUser(t, s, "a@example.com")
+
+	if _, err := s.CreateVault(context.Background(), user.ID, "Notes"); err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	if _, err := s.CreateVault(context.Background(), user.ID, "notes"); !errors.Is(err, ErrVaultExists) {
+		t.Errorf("CreateVault() with a case-insensitive duplicate = %v, want ErrVaultExists", err)
+	}
+	if _, err := s.CreateVault(context.Background(), user.ID, "NOTES"); !errors.Is(err, ErrVaultExists) {
+		t.Errorf("CreateVault() with a case-insensitive duplicate = %v, want ErrVaultExists", err)
 	}
 }
 
@@ -77,6 +95,19 @@ func TestCreateVaultSameNameDifferentUsers(t *testing.T) {
 	}
 	if _, err := s.CreateVault(context.Background(), userB.ID, "notes"); err != nil {
 		t.Errorf("CreateVault(userB) with the same name as userA's vault: %v", err)
+	}
+}
+
+func TestCreateVaultSameNameDifferentCaseDifferentUsers(t *testing.T) {
+	s := newTestStore(t)
+	userA := seedUser(t, s, "a@example.com")
+	userB := seedUser(t, s, "b@example.com")
+
+	if _, err := s.CreateVault(context.Background(), userA.ID, "notes"); err != nil {
+		t.Fatalf("CreateVault(userA): %v", err)
+	}
+	if _, err := s.CreateVault(context.Background(), userB.ID, "NOTES"); err != nil {
+		t.Errorf("CreateVault(userB) with a different-case name as userA's vault: %v", err)
 	}
 }
 
@@ -98,6 +129,30 @@ func TestVaultByName(t *testing.T) {
 	}
 	if got.Name != "notes" {
 		t.Errorf("Name = %q, want %q", got.Name, "notes")
+	}
+}
+
+func TestVaultByNameCaseInsensitive(t *testing.T) {
+	s := newTestStore(t)
+	user := seedUser(t, s, "a@example.com")
+
+	created, err := s.CreateVault(context.Background(), user.ID, "Notes")
+	if err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	for _, name := range []string{"Notes", "notes", "NOTES", "nOtEs"} {
+		got, err := s.VaultByName(context.Background(), user.ID, name)
+		if err != nil {
+			t.Errorf("VaultByName(%q) error: %v", name, err)
+			continue
+		}
+		if got.ID != created.ID {
+			t.Errorf("VaultByName(%q) ID = %q, want %q", name, got.ID, created.ID)
+		}
+		if got.Name != "Notes" {
+			t.Errorf("VaultByName(%q) Name = %q, want %q (stored casing)", name, got.Name, "Notes")
+		}
 	}
 }
 
@@ -189,6 +244,28 @@ func TestDeleteVault(t *testing.T) {
 	_, err = s.VaultByName(context.Background(), user.ID, "notes")
 	if !errors.Is(err, ErrVaultNotFound) {
 		t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
+	}
+}
+
+func TestDeleteVaultCaseInsensitive(t *testing.T) {
+	s := newTestStore(t)
+	user := seedUser(t, s, "a@example.com")
+
+	if _, err := s.CreateVault(context.Background(), user.ID, "Notes"); err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	deleted, err := s.DeleteVault(context.Background(), user.ID, "NOTES")
+	if err != nil {
+		t.Fatalf("DeleteVault() error: %v", err)
+	}
+	if !deleted {
+		t.Errorf("DeleteVault() = false, want true")
+	}
+
+	_, err = s.VaultByName(context.Background(), user.ID, "notes")
+	if !errors.Is(err, ErrVaultNotFound) {
+		t.Errorf("VaultByName() after case-insensitive delete = %v, want ErrVaultNotFound", err)
 	}
 }
 
