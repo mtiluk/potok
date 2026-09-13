@@ -150,7 +150,6 @@ func (h *Handler) VaultByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement case insensitive name matching (will need modifiying in store)
 	name := r.PathValue("name")
 	if name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)

@@ -157,6 +157,12 @@ func TestCreateVaultEndpoint(t *testing.T) {
 			input:      `{"name":"notes"}`,
 			wantStatus: http.StatusConflict,
 		},
+		{
+			name:       "duplicate name different case",
+			seed:       `{"name":"Notes"}`,
+			input:      `{"name":"notes"}`,
+			wantStatus: http.StatusConflict,
+		},
 	}
 
 	for _, test := range tests {
@@ -309,6 +315,26 @@ func TestVaultByNameEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("found case insensitive", func(t *testing.T) {
+		for _, name := range []string{"notes", "NOTES", "Notes"} {
+			rec := get(name)
+			if rec.Code != http.StatusOK {
+				t.Errorf("GET %q: expected status code %d, got %d (body: %s)",
+					name, http.StatusOK, rec.Code, rec.Body.String())
+				continue
+			}
+
+			var got store.Vault
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Errorf("GET %q: decode response: %v (body: %s)", name, err, rec.Body.String())
+				continue
+			}
+			if got.Name != "notes" {
+				t.Errorf("GET %q: Name = %q, want %q (stored casing)", name, got.Name, "notes")
+			}
+		}
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		rec := get("does-not-exist")
 		if rec.Code != http.StatusNotFound {
@@ -376,6 +402,24 @@ func TestDeleteVaultEndpoint(t *testing.T) {
 
 		if _, err := s.VaultByName(context.Background(), user.ID, "notes"); !errors.Is(err, store.ErrVaultNotFound) {
 			t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
+		}
+	})
+
+	t.Run("deletes matching name case insensitively", func(t *testing.T) {
+		if _, err := s.CreateVault(context.Background(), user.ID, "Journal"); err != nil {
+			t.Fatalf("seed CreateVault: %v", err)
+		}
+
+		rec := del("JOURNAL")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+		if got, want := rec.Body.String(), "Vault deleted"; got != want {
+			t.Errorf("body = %q, want %q", got, want)
+		}
+
+		if _, err := s.VaultByName(context.Background(), user.ID, "journal"); !errors.Is(err, store.ErrVaultNotFound) {
+			t.Errorf("VaultByName() after case-insensitive delete = %v, want ErrVaultNotFound", err)
 		}
 	})
 
