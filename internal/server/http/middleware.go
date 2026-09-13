@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/michaeltukdev/Potok/internal/server/store"
+	"github.com/mtiluk/potok/internal/server/store"
 )
 
 type contextKey int

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/michaeltukdev/Potok/internal/client/cli"
+	"github.com/mtiluk/potok/internal/client/cli"
 )
 
 func main() {

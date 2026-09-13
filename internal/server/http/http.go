@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/michaeltukdev/Potok/internal/server/blobstore"
-	"github.com/michaeltukdev/Potok/internal/server/store"
+	"github.com/mtiluk/potok/internal/server/blobstore"
+	"github.com/mtiluk/potok/internal/server/store"
 )
 
 type Store interface {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/michaeltukdev/Potok/internal/client/config"
+	"github.com/mtiluk/potok/internal/client/config"
 )
 
 func captureStdout(t *testing.T, fn func()) string {

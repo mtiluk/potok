@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/michaeltukdev/Potok/internal/server/auth"
+	"github.com/mtiluk/potok/internal/server/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/michaeltukdev/Potok/internal/client/config"
-	"github.com/michaeltukdev/Potok/internal/client/secrets"
+	"github.com/mtiluk/potok/internal/client/config"
+	"github.com/mtiluk/potok/internal/client/secrets"
 	"github.com/zalando/go-keyring"
 )
 

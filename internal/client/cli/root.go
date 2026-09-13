@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/michaeltukdev/Potok/internal/client/cli/commands"
+	"github.com/mtiluk/potok/internal/client/cli/commands"
 	"github.com/spf13/cobra"
 )
 
