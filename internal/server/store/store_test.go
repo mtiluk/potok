@@ -106,6 +106,10 @@ func TestCreateVaultDuplicateName(t *testing.T) {
 	if _, err := s.CreateVault(context.Background(), user.ID, "notes"); err == nil {
 		t.Error("CreateVault() with a name the user already has expected an error, got nil")
 	}
+
+	if _, err := s.CreateVault(context.Background(), user.ID, "NOTES"); !errors.Is(err, ErrVaultExists) {
+		t.Errorf("CreateVault(NOTES) error = %v, want ErrVaultExists", err)
+	}
 }
 
 func TestCreateVaultSameNameDifferentUsers(t *testing.T) {
@@ -164,6 +168,35 @@ func TestVaultByNameScopedToUser(t *testing.T) {
 	_, err := s.VaultByName(context.Background(), userB.ID, "notes")
 	if !errors.Is(err, ErrVaultNotFound) {
 		t.Errorf("VaultByName() for userB = %v, want ErrVaultNotFound (userA's vault must not be visible)", err)
+	}
+}
+
+func TestVaultByNameCaseInsensitive(t *testing.T) {
+	s := newTestStore(t)
+	user := seedUser(t, s, "a@example.com")
+
+	created, err := s.CreateVault(context.Background(), user.ID, "Notes")
+	if err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	got, err := s.VaultByName(context.Background(), user.ID, "notes")
+	if err != nil {
+		t.Fatalf("VaultByName(notes) error: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("ID = %q, want %q", got.ID, created.ID)
+	}
+	if got.Name != "Notes" {
+		t.Errorf("Name = %q, want stored spelling %q", got.Name, "Notes")
+	}
+
+	got, err = s.VaultByName(context.Background(), user.ID, "NOTES")
+	if err != nil {
+		t.Fatalf("VaultByName(NOTES) error: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("ID = %q, want %q", got.ID, created.ID)
 	}
 }
 
@@ -230,6 +263,27 @@ func TestDeleteVault(t *testing.T) {
 	_, err = s.VaultByName(context.Background(), user.ID, "notes")
 	if !errors.Is(err, ErrVaultNotFound) {
 		t.Errorf("VaultByName() after delete = %v, want ErrVaultNotFound", err)
+	}
+}
+
+func TestDeleteVaultCaseInsensitive(t *testing.T) {
+	s := newTestStore(t)
+	user := seedUser(t, s, "a@example.com")
+
+	if _, err := s.CreateVault(context.Background(), user.ID, "Notes"); err != nil {
+		t.Fatalf("seed CreateVault: %v", err)
+	}
+
+	deleted, err := s.DeleteVault(context.Background(), user.ID, "NOTES")
+	if err != nil {
+		t.Fatalf("DeleteVault(NOTES) error: %v", err)
+	}
+	if !deleted {
+		t.Errorf("DeleteVault(NOTES) = false, want true")
+	}
+
+	if _, err := s.VaultByName(context.Background(), user.ID, "Notes"); !errors.Is(err, ErrVaultNotFound) {
+		t.Errorf("VaultByName() after case-insensitive delete = %v, want ErrVaultNotFound", err)
 	}
 }
 

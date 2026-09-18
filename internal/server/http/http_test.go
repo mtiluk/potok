@@ -309,6 +309,21 @@ func TestVaultByNameEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("case insensitive", func(t *testing.T) {
+		rec := get("NOTES")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d (body: %s)", http.StatusOK, rec.Code, rec.Body.String())
+		}
+
+		var got store.Vault
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode response: %v (body: %s)", err, rec.Body.String())
+		}
+		if got.Name != "notes" {
+			t.Errorf("Name = %q, want stored spelling %q", got.Name, "notes")
+		}
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		rec := get("does-not-exist")
 		if rec.Code != http.StatusNotFound {

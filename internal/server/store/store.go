@@ -94,7 +94,19 @@ func (s *Store) CreateVault(ctx context.Context, userID, name string) (Vault, er
 		UpdatedAt: time.Now(),
 	}
 
+	var existing string
 	err := s.db.QueryRowContext(ctx, `
+		SELECT id FROM vaults WHERE user_id = $1 AND name = $2 COLLATE NOCASE`,
+		userID, name,
+	).Scan(&existing)
+	if err == nil {
+		return Vault{}, ErrVaultExists
+	}
+	if err != sql.ErrNoRows {
+		return Vault{}, fmt.Errorf("store: create vault: %w", err)
+	}
+
+	err = s.db.QueryRowContext(ctx, `
 		INSERT INTO vaults (id, user_id, name, kdf_salt, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (user_id, name) DO NOTHING
@@ -115,7 +127,7 @@ func (s *Store) CreateVault(ctx context.Context, userID, name string) (Vault, er
 func (s *Store) VaultByName(ctx context.Context, userID, name string) (Vault, error) {
 	var vault Vault
 
-	err := s.db.QueryRowContext(ctx, "SELECT id, name, kdf_salt, created_at, updated_at FROM vaults WHERE user_id = $1 AND name = $2", userID, name).Scan(&vault.ID, &vault.Name, &vault.KDFSalt, &vault.CreatedAt, &vault.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, "SELECT id, name, kdf_salt, created_at, updated_at FROM vaults WHERE user_id = $1 AND name = $2 COLLATE NOCASE", userID, name).Scan(&vault.ID, &vault.Name, &vault.KDFSalt, &vault.CreatedAt, &vault.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Vault{}, ErrVaultNotFound
@@ -148,7 +160,7 @@ func (s *Store) ListVaults(ctx context.Context, userID string) ([]Vault, error) 
 }
 
 func (s *Store) DeleteVault(ctx context.Context, userID, name string) (bool, error) {
-	res, err := s.db.ExecContext(ctx, "DELETE FROM vaults WHERE user_id = $1 AND name = $2", userID, name)
+	res, err := s.db.ExecContext(ctx, "DELETE FROM vaults WHERE user_id = $1 AND name = $2 COLLATE NOCASE", userID, name)
 	if err != nil {
 		return false, fmt.Errorf("store: delete vault: %w", err)
 	}
